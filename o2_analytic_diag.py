@@ -72,9 +72,30 @@ def get_O2_eigs(s, p, ss, sp, pps, ppp):
 	e[6] = ev2[1]
 	e[7] = ev2[2]
 
-	return e
+	se = np.sum( np.sort(e)[:int(len(e)/2)] )
+	return e, se
+
+def get_O2_eigs_simple(s, p, ss, sp, pps, ppp):
+	
+	e = np.zeros(8)
+
+	e[0] = p - ppp
+	e[1] = p - ppp
+	e[2] = p + ppp
+	e[3] = p + ppp
+
+	e[4] = 0.5 * (p - pps + s + ss - np.sqrt( (p - pps + s + ss)**2 +  4 * ( -p * s  +  pps * s  +  sp**2  -  p * ss + pps * ss) ) )
+	e[5] = 0.5 * (p - pps + s + ss + np.sqrt( (p - pps + s + ss)**2 +  4 * ( -p * s  +  pps * s  +  sp**2  -  p * ss + pps * ss) ) )
+	e[6] = 0.5 * (p + pps + s - ss - np.sqrt( (p + pps + s - ss)**2 +  4 * ( -p * s  -  pps * s  +  sp**2  +  p * ss + pps * ss) ) )
+	e[7] = 0.5 * (p + pps + s - ss + np.sqrt( (p + pps + s - ss)**2 +  4 * ( -p * s  -  pps * s  +  sp**2  +  p * ss + pps * ss) ) )
+
+	se = np.sum( np.sort(e)[:int(len(e)/2)] )
+
+	return e, se
+
 
 def get_O2_eigs_dd( s, p, ss, sp, pps, ppp ):
+
 	H = np.array( [  [ s,    ss,   0,    0,    0,    -sp,  -sp,  -sp ], 
 				     [ ss,    s,   sp,   sp,   sp,   0,    0,    0   ], 
 				     [ 0,    sp,   p,    0,    0,    pps,  0,    0   ],
@@ -84,13 +105,82 @@ def get_O2_eigs_dd( s, p, ss, sp, pps, ppp ):
 				     [ -sp,  0,    0,    ppp,  0,    0,    p,    0   ],
 				     [ -sp,  0,    0,    0,    ppp,  0,    0,    p   ]  ]  )
 
+	H = np.array( [  [ s,    ss,   0,    0,    0,    -sp,  0,    0 ], 
+				     [ ss,    s,   sp,   0,    0,    0,    0,    0   ], 
+				     [ 0,    sp,   p,    0,    0,    pps,  0,    0   ],
+				     [ 0,     0,   0,    p,    0,    0,    ppp,  0   ], 
+				     [ 0,     0,   0,    0,    p,    0,    0,    ppp ], 
+				     [ -sp,   0,    pps,  0,    0,    p,    0,    0   ], 
+				     [ 0,     0,    0,    ppp,  0,    0,    p,    0   ],
+				     [ 0,     0,    0,    0,    ppp,  0,    0,    p   ]  ]  )
+
+
+
 
 
 	e = np.linalg.eigh(H)[0]
-	e[-1] = -e[-1]
-	return e
+	srt = np.sort(e)
 
-def get_bond_integrals(x, DD):
+	se = np.sum( np.sort(e)[: int(len(e)/2)] )
+	#e[-1] = -e[-1]
+	print(se)
+	return e, se
+
+def get_O2_eigs_full( s, p, Ess, Esp, Exx, Exy ):
+
+	H = np.array( [  [ s,    Ess,  		0,        0,          0,    -Esp[0],    -Esp[1],   -Esp[2]   ], 
+
+				     [ Ess,   s,      Esp[0],   Esp[1],   Esp[2],      0,           0,        0      ], 
+
+				     [ 0,    Esp[0],    p,        0,       0,        Exx[0],  	 Exy[0],    Exy[1]   ],
+
+				     [ 0,    Esp[1],    0,        p,       0,        Exy[0],     Exx[1],    Exy[2]   ], 
+
+				     [ 0,    Esp[2],    0,        0,       p,        Exy[1],     Exy[2],    Exx[2]   ], 
+
+				     [ -Esp[0],   0,  Exx[0],  	Exy[0],   Exy[1],      p,          0,         0      ], 
+
+				     [ -Esp[1],   0,  Exy[0],   Exx[1],   Exy[2],      0,          p,         0      ],
+
+				     [ -Esp[2],   0,  Exy[1],   Exy[2],   Exx[2],      0,          0,         p      ]  ]  )
+
+
+
+
+
+	e = np.linalg.eigh(H)[0]
+	srt = np.sort(e)
+
+	se = np.sum( np.sort(e)[: int(len(e)/2)] )
+	#e[-1] = -e[-1]
+	print(se)
+	return e, se
+
+
+def get_matrix_elements( l, m, n,   s, p, ss, sps, pps, ppp ):
+
+	Exx = np.zeros( 3 )
+	Exy = np.zeros( 3 )
+	Esp = np.zeros( 3 )
+
+	Ess    = ss
+
+	Esp[0] = l * sps
+	Esp[1] = m * sps
+	Esp[2] = n * sps
+
+	Exx[0] = l**2 * pps  +  ( 1. - l**2  ) * ppp  # xx
+	Exx[1] = m**2 * pps  +  ( 1. - m**2  ) * ppp  # yy
+	Exx[2] = n**2 * pps  +  ( 1. - n**2  ) * ppp  # zz
+
+	Exy[0] =  l * m * pps   -   l * m * ppp  # xy
+	Exy[1] =  l * n * pps   -   l * n * ppp  # xz
+	Exy[2] =  m * n * pps   -   m * n * ppp  # yz
+
+	return Ess, Esp, Exx, Exy
+
+
+def get_bond_integrals(x, l, m, n, DD):
 	
 	s    = - 2.1164
 	p    = - 1.1492
@@ -117,23 +207,28 @@ def get_bond_integrals(x, DD):
 	pps = gsp( pps, r0, x, rc, npps, nc )
 	ppp = gsp( ppp, r0, x, rc, nppp, nc )
 
+	if DD == 'Full':
+		Ess, Esp, Exx, Exy = get_matrix_elements( l, m, n,   s, p, ss, sps, pps, ppp ) 
+
+		eigs, se = get_O2_eigs_full( s, p, Ess, Esp, Exx, Exy )
+
 	if DD:
-		eigs = get_O2_eigs_dd(s, p, ss, sps, pps, ppp)
+		eigs, se = get_O2_eigs_dd(s, p, ss, sps, pps, ppp)
 
 	else:
-		eigs = get_O2_eigs(s, p, ss, sps, pps, ppp)
-		
-	print(eigs)
-	return eigs
+		eigs, se = get_O2_eigs(s, p, ss, sps, pps, ppp)
+
+	
+	return eigs, se
 
 
 
-def bond_int_dep(xv, DD):
+def bond_int_dep(xv, DD, l, m, n):
 
 	e_arr = np.zeros( (8, len(xv)) )
 
 	for i in range(len(xv)):
-		eigs = get_bond_integrals( xv[i], DD )
+		eigs = get_bond_integrals( xv[i], DD, l, m, n )
 		e_arr[:,i] = eigs
 
 	sbi = np.sum(e_arr , axis = 0) 
@@ -160,47 +255,106 @@ def bond_int_dep(xv, DD):
 	ax.set_ylabel( 'Energy (ryd)' )
 	ax.legend()
 
-def pairp( x, A, b, C, d  ):
-	return A * np.exp(-b*x) - C * np.exp(-d*x)
+def pairp( x, A, b, C, d, PL  ):
+
+	if PL != None:
+		##  Return exponential Power Law of degree PL:  A / x**PL
+		ret = A / ( x ** PL )
+	else:
+		ret = A * np.exp(-b*x) - C * np.exp(-d*x)
+
+	return ret
 
 	
-def bind_energy(xv, DD, A, b, C, d, plot):
+def bind_energy(xv, DD, l, m, n,  A, b, C, d, plot, PL):
 
 	e_arr =  np.zeros( (8, len(xv)) )
 	pp    =  np.array(     [ ]      )
+	sbi   =  np.array( 	   [ ]      )
 
 	for i in range(len(xv)):
-		eigs = get_bond_integrals( xv[i], DD )
-		pp 	 = np.append( pp, pairp( xv[i], A, b, C, d ) )
+		eigs, se   = get_bond_integrals( xv[i], DD, l, m, n )
+		sbi        = np.append( sbi, se  )
 		e_arr[:,i] = eigs
 
-	sbi  = np.sum(e_arr , axis = 0) 
-	bind = sbi + pp
+	if PL != 'EPP':
+		pp   = pairp( xv, A, b, C, d , PL) 
+	else:
+		##  These parameters have minimum at the right r0 now
+		Ae  = [  0.0040306, -0.0020265  ]
+		r0e =  7.28
+		me  = [10, 6] 
+		pe  = [0, 0]
+		pp  = epl( Ae, r0e, xv, me, pe )
 
-	print('Minimum binding energy coord',  xv[np.argmin(bind)] )
+	bind = sbi + pp
+	b_min = np.argmin(bind)
+
+	
+
+	mass         =  12. * 1.67*10**(-27) 
+
+	ryd_to_joule =  13.606 * 1.6 * 10**(-19)
+	bohr_to_m    =  5.29177208*10**(-11)
+	m_to_cm      =  100
+	sol 	     =  2.98 * 10**(8)  ## Speed of light
+
+	dxv 		 =  xv[1] - xv[0]
+	k_c 		 =  (  bind[ (b_min + 1) % len(bind)]   -   2 * bind[b_min]   +   bind[b_min -1] ) / dxv**2
+
+	omegasq      =  ( k_c / mass  ) * ryd_to_joule / ( bohr_to_m**2 ) 
+
+	wavenumber   =  np.sqrt( omegasq ) / ( 2. * np.pi * sol * m_to_cm ) 
+	wv_exp       =  2061 
+	hz 		     =  2 * np.pi * 62.38681 * 10**(12)
+ 
+	print('Minimum binding energy coord = %s \n Wavenumber at minimum = %s cm^-1,   exp = %s cm^-1  '%( xv[b_min], wavenumber, wv_exp) )
 
 	if plot:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 
-		yy = np.array([0, np.max(pp)])
-		xx = [ xv[np.argmin(bind)] for i in yy]
+		yy = np.array([np.min(bind), np.max(pp)])
 
-		ax.plot(xv, sbi,  label = 'E_band', linestyle = '-')
-		ax.plot(xv, pp,   label = 'E_pair', linestyle = '-')
-		ax.plot(xv, bind, label = 'E_bind', linestyle = '-')
-		ax.plot( xx, yy,  label = 'E_bind min', linestyle = '-')
+		xx = [ xv[b_min] for i in yy]
+
+
+		ax.plot( xv, sbi,  label = 'E_band',     linestyle = '-')
+		ax.plot( xv, pp,   label = 'E_pair',     linestyle = '-')
+		ax.plot( xv, bind, label = 'E_bind',     linestyle = '-')
+		ax.plot( xx, yy,   label = 'E_bind min', linestyle = '-')
 
 		Ae  = [  0.0040306, -0.0020265  ]
 		r0e =  5.6
 		me  = [10, 6] 
 		pe  = [0, 0]
 
-		ep = epl( Ae, r0e, xv, me, pe )
+		ep  = epl( Ae, r0e, xv, me, pe )
+		epb = ep + sbi
+		epb_min = np.argmin(epb)
 
-		ax.plot( xv, ep,  label = 'EPL', linestyle = '-')
+		yye  = np.array([np.min(epb), np.max(pp)])
+		xxe = [ xv[epb_min] for i in yye]
 
-		if DD:
+		ax.plot( xv,  ep,   label = 'EPL',          linestyle = '-')
+		ax.plot( xv,  epb,  label = 'EPL_bind',     linestyle = '-')
+		ax.plot( xxe, yye,  label = 'EPL bind_min', linestyle = '-')
+
+		omsq_epb = (  epb[epb_min + 1]   -   2 * epb[epb_min]   +   epb[epb_min -1] ) / dxv**2
+
+		omsq_epb = ( omsq_epb / mass  ) * ryd_to_joule / ( bohr_to_m**2 ) 
+
+		wvnb_epb =   np.sqrt( omsq_epb ) / ( 2. * np.pi * sol * m_to_cm ) 
+		wv_exp     =  2061 
+
+		
+		
+ 
+		print('Minimum epb binding energy coord = %s \n EPB wavenumber at minimum = %s cm^-1,   exp = %s cm^-1  '%( xv[epb_min], wvnb_epb, wv_exp) )
+
+		if DD == 'Full':
+			ax.set_title( 'Binding energy for diatomic oxygen: Full' )
+		elif DD:
 			ax.set_title( 'Binding energy for diatomic oxygen: DD' )
 		else:
 			ax.set_title( 'Binding energy for diatomic oxygen: Analytic' )
@@ -211,25 +365,30 @@ def bind_energy(xv, DD, A, b, C, d, plot):
 
 	return bind
 
-xv = np.linspace(2, 4., 200)
+xv = np.linspace(1.2, 3., 400)
 #bond_int_dep(xv, True)
 #bond_int_dep(xv, False)
 
-A = 100.; b = 14; C = 0.; d = 0.
+A = 30233.5; b = 4; C = 0.; d = 0.
 
-A = 700. / np.exp( - 2.282788994 * b ) 
+PL = 4
 
-bind_energy(xv, True, A, b, C, d, True)
+if PL == None:
+	A = 516.5 / np.exp( - 2.282788994 * b ) 
+
+l = 1. ; m = 0.; n = 0
+
+PL = 4
+
+#bind_energy(xv, 'Full',  l, m, n,   A, b, C, d, True, PL)
+bind_energy(xv, 'Full',  l, m, n,   A, b, C, d, True, 'EPP')
+#bind_energy(xv, 'Full',  l, m, n,   A, b, C, d, True, None)
+#bind_energy(xv,  True,   l, m, n,   A, b, C, d, True, PL)
 #bind_energy(xv, False, A, b, C, d, True)
 plt.show()
 
 """
 
-[ 223.87516842 -226.17356842 -563.71348003  223.89085006  -12.33559773
- -563.71348003 -226.18937953    8.10293895]
-
-[-563.71348003 -226.18937953 -226.17356842  -12.33559773    8.10293895
-  223.87516842  223.89085006 -561.41506829]
 
 Eigenvalues of this matrix in Mathematica
 
