@@ -2,6 +2,9 @@
 ##    This is a file which has the analytic solution to the tight binding Hamiltonian of O2   ##
 import numpy as np 
 import matplotlib.pyplot as plt
+import opt_general as g
+import bayes_opt_g_process as gpr
+
 """
 This is the Hamiltonian for diatomic Oxygen 
 H = np.array( [  [ s,   ss,   0,   0,   0,   -sp, -sp, -sp ], 
@@ -281,10 +284,10 @@ def bind_energy(xv, DD, l, m, n,  A, b, C, d, plot, PL):
 		pp   = pairp( xv, A, b, C, d , PL) 
 	else:
 		##  These parameters have minimum at the right r0 now
-		Ae  = [  0.0040306, -0.0020265  ]
-		r0e =  7.28
-		me  = [10, 6] 
-		pe  = [0, 0]
+		Ae  = [  0.007306, -0.0020265  ]
+		r0e =  9.28
+		me  = [8, 2] 
+		pe  = [0,0]
 		pp  = epl( Ae, r0e, xv, me, pe )
 
 	bind = sbi + pp
@@ -292,7 +295,7 @@ def bind_energy(xv, DD, l, m, n,  A, b, C, d, plot, PL):
 
 	
 
-	mass         =  12. * 1.67*10**(-27) 
+	mass         =  16. * 1.67*10**(-27) 
 
 	ryd_to_joule =  13.606 * 1.6 * 10**(-19)
 	bohr_to_m    =  5.29177208*10**(-11)
@@ -308,7 +311,7 @@ def bind_energy(xv, DD, l, m, n,  A, b, C, d, plot, PL):
 	wv_exp       =  2061 
 	hz 		     =  2 * np.pi * 62.38681 * 10**(12)
  
-	print('Minimum binding energy coord = %s \n Wavenumber at minimum = %s cm^-1,   exp = %s cm^-1  '%( xv[b_min], wavenumber, wv_exp) )
+	print('\n Minimum binding energy coord = %s \n Wavenumber at minimum = %s cm^-1,   exp = %s cm^-1  \n '%( xv[b_min], wavenumber, wv_exp) )
 
 	if plot:
 		fig = plt.figure()
@@ -350,7 +353,7 @@ def bind_energy(xv, DD, l, m, n,  A, b, C, d, plot, PL):
 		
 		
  
-		print('Minimum epb binding energy coord = %s \n EPB wavenumber at minimum = %s cm^-1,   exp = %s cm^-1  '%( xv[epb_min], wvnb_epb, wv_exp) )
+		print('\nMinimum epb binding energy coord = %s \n EPB wavenumber at minimum = %s cm^-1,   exp = %s cm^-1  '%( xv[epb_min], wvnb_epb, wv_exp) )
 
 		if DD == 'Full':
 			ax.set_title( 'Binding energy for diatomic oxygen: Full' )
@@ -363,7 +366,9 @@ def bind_energy(xv, DD, l, m, n,  A, b, C, d, plot, PL):
 		ax.set_ylabel( 'Energy (ryd)' )
 		ax.legend()
 
-	return bind
+	return bind, xv[b_min], wavenumber
+
+
 
 xv = np.linspace(1.2, 3., 400)
 #bond_int_dep(xv, True)
@@ -381,11 +386,136 @@ l = 1. ; m = 0.; n = 0
 PL = 4
 
 #bind_energy(xv, 'Full',  l, m, n,   A, b, C, d, True, PL)
+
 bind_energy(xv, 'Full',  l, m, n,   A, b, C, d, True, 'EPP')
+
 #bind_energy(xv, 'Full',  l, m, n,   A, b, C, d, True, None)
 #bind_energy(xv,  True,   l, m, n,   A, b, C, d, True, PL)
 #bind_energy(xv, False, A, b, C, d, True)
-plt.show()
+
+#plt.show()
+gprt = False
+if gprt:
+
+	beta    = 1./0.1
+
+	theta   = np.array( [ 1., 4, 0., 0. ] )
+	update  = False
+
+
+	x_pp    = np.array( [ ] )
+
+
+	t_E     = np.array( [ ] )
+	t_min   = np.array( [ ] )
+	t_wv    = np.array( [ ] )
+
+
+	K_min   = np.array( [ ] )
+	K_wv    = np.array( [ ] )
+
+	pp_a	= np.array( [ ] )
+
+
+	A = np.linspace(1, 10000, 10000  )
+	B = np.arange(4, 9)
+
+	ind_A = 0
+	ind_B = 0
+
+	for i in range(1000):
+
+		if i % 10 ==  0:
+			plot = True 
+		else:
+			plot = False
+
+		pair_pot     = np.array( [ A[ind_A], B[ind_B]  ] )
+
+		bind, min_i, wv = bind_energy(xv, 'Full',  l, m, n,  A[ind_A], b, C, d, plot, B[ind_A])
+
+		diff_min  = 2.282788994 - min_i
+		diff_wv   = 2061. - wv 
+
+		error = np.sum( (diff_min)**2 + diff_wv**2 )
+		print('    Minimum_diff = %s\n Wavenumber diff = %s\n  error = %s\n ' %(diff_min, diff_wv, error ) )
+		print('    Gaussian process regression: Iteration  %s\n' %(i))
+
+		x_pp    = gpr.append_vector( x_pp, pair_pot )
+
+
+		t_E     = np.append( t_E,   error    )
+
+		t_min   = np.append( t_min, diff_min**2 )
+		t_wv    = np.append( t_wv,  diff_wv**2 )
+
+		print('GPR {min, wv}' )
+		m_min,   var_min,   K_min,   C_N_min,   C_N_inv_min   = gpr.gaussian_process_regression( x_pp, pair_pot, t_min,   K_min, 
+																							  1/0.001, theta, update )
+
+		m_wv,   var_wv,   K_wv,   C_N_wv,   C_N_inv_wv   = gpr.gaussian_process_regression( x_pp, pair_pot, t_wv,   K_wv, 
+																							  1/0.001, theta, update )
+
+
+		y_EI_min = np.array([]); y_EI_wv = np.array([]); y_EI_sum = np.array([])
+
+		print('Starting EI {min, wv} integration' )
+		for AA in A:
+			for BB in B:
+
+				pair_pot_i = np.array( [ AA, BB ] )
+
+				m_min      =  gpr.m_pred_xnp1_sum(  theta, x_pp, pair_pot_i, C_N_inv_min,   t_min     )
+				m_wv       =  gpr.m_pred_xnp1_sum(  theta, x_pp, pair_pot_i, C_N_inv_wv, t_wv   )
+
+
+				k_min     =  gpr.get_next_k_(  theta, x_pp, pair_pot_i )
+				k_wv      =  gpr.get_next_k_(  theta, x_pp, pair_pot_i )
+
+				var_min   =  gpr.var_pred_next_target( theta,  pair_pot_i, C_N_inv_min,   k_min,   beta )
+				var_wv    =  gpr.var_pred_next_target( theta,  pair_pot_i, C_N_inv_wv,    k_wv,    beta )
+
+
+				ng = 100
+				y_EI_min  = np.append( y_EI_min,   gpr.EI_point(m_min,   var_min, t_min,   ng) )
+				y_EI_wv   = np.append( y_EI_wv,    gpr.EI_point(m_wv,    var_wv,  t_wv,    ng) )
+
+				##  Total expected improvement for given pair potential parameters 
+				y_EI_sum  = np.append(y_EI_sum, y_EI_min[-1] + y_EI_wv[-1] )
+
+
+		ind_pp       = np.argmax(y_EI_sum) 
+		ind_A, ind_B = np.unravel_index( ind_pp, (len(A), len(B)) )
+		pair_pot     = np.array( [ A[ind_A], B[ind_B]  ] )
+
+
+		print('EI indices:\n    ind = %s, A = %s,\n    ind = %s, B = %s,\n  ' %(ind_A, A[ind_A], ind_B, B[ind_B]))
+
+
+		plotgpr = True
+		pp_a    = np.append(pp_a, ind_A * len(A) + len(B))
+		if plotgpr: 
+
+			indpp = np.arange( len(A)*len(B) ) 
+
+			fig = plt.figure()
+			ax = fig.add_subplot(111)
+
+			ax.plot( indpp , y_EI_sum,  'c-') 
+
+			ax.set_title( 'GPR: Expected improvement vs pair potential index' )
+
+			ax.set_xlabel( 'Pair potential index' )
+			ax.set_ylabel( ' Expected improvement in finding minimum error' )
+
+
+
+			plt.show()
+
+
+
+
+
 
 """
 
